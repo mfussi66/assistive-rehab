@@ -18,6 +18,11 @@ theme:
         accent: amber
     features:
         - tabs
+        - navigation.tabs
+        - navigation.tabs.sticky
+        - navigation.tracking
+        - navigation.sections
+        - navigation.top
     icon:
         logo: material/robot
 

@@ -30,4 +30,9 @@ service eventCollector_IDL
    */
    bool stop();
 
+   /**
+   * Save collected data to JSON file.
+   * @return true/false on success/failure.
+   */
+   bool save_data();
 }

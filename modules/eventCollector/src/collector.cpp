@@ -10,6 +10,20 @@
  * @authors: Valentina Vasco <valentina.vasco@iit.it> Alexandre Antunes <alexandre.gomespereira@iit.it>
  */
 
+/**
+ * Instructions of use:
+ * This module has 3 ports:
+ *  - /eventCollector/speech:i               - this port receives strings from googleSpeech module
+ *  - /eventCollector/speech-processing:i    - this port receives strings from googleSpeechProcessing module
+ *  - /eventCollector/cmd                    - this port controls the flow of the module
+ * 
+ * To use this module, you must first ensure all ports are connected. 
+ * At the beginning of each trial, you should send a "start" command through the /cmd port. This will tell the module
+ * to listen to the ports and store the data.
+ * At the end of a trial, you should send the "stop" command to the /cmd port to tell the module this trial is over.
+ * The JSON file with all the collected data will be created when the module is closed.
+ */
+
 #include <iostream>
 #include <vector>
 #include <list>
@@ -41,9 +55,14 @@ class Collector : public RFModule, public eventCollector_IDL
     RpcServer rpcPort;
     BufferedPort<Bottle> googleSpeechPort;
     BufferedPort<Bottle> googleProcessPort;
-    vector<string> speech_events;
-    vector<string> speech_process_events;
+    //vector<string> speech_events;
+    //vector<string> speech_process_events;
+
+    Json::Value jsonRoot;
+    Json::Value jsonTrialInstance;
+    Json::Value jsonErrorMessage;
     bool starting;
+    bool got_speech;
     mutex mtx;
 
 public:
@@ -66,6 +85,9 @@ public:
         attach(rpcPort);
 
         starting=false;
+        got_speech=false;
+        
+        jsonRoot["Trial"] = {}; 
 
         return true;
     }
@@ -83,6 +105,11 @@ public:
     /********************************************************/
     bool close()
     {
+        if (starting)
+        {
+            stop();
+        }
+        save_data();
         googleSpeechPort.close();
         googleProcessPort.close();
         rpcPort.close();
@@ -113,17 +140,40 @@ public:
         {
             if (speech->size()>0)
             {
+                if (got_speech) // this means we got a speech bottle after another speechBottle, something went wrong
+                {
+                    // in this situation, we save first the previous instance
+                    jsonErrorMessage["google-speech-process"]="no google-speech-processing triggered";
+                    jsonTrialInstance["Speech"]["error-messages"].append(jsonErrorMessage);
+                }
+                yDebug()<<"speech bottle:"<<speech->toString();
                 string content=speech->get(0).asString();
-                speech_events.push_back(content);
+                yDebug()<<"content:"<<content;
+
+                jsonErrorMessage["google-speech"]=content;
+
+                got_speech=true;
+                
             }
         }
 
-        if (speech_process)
+        if (speech_process) // if we got something from speech process AND we already had something from speech
         {
             if (speech_process->size()>0)
             {
+                if (!got_speech) // similarly, in this case the speechProcessing was triggered by something else
+                {
+                    // in this case we just append an error mesage to google-speech before processing
+                    jsonErrorMessage["google-speech"]="no google-speech triggered";
+                }
+                yDebug()<<"speech process bottle:"<<speech_process->toString();
                 string content=speech_process->get(0).asString();
-                speech_process_events.push_back(content);
+                yDebug()<<"content:"<<content;
+
+                jsonErrorMessage["google-speech-process"]=content;
+                jsonTrialInstance["Speech"]["error-messages"].append(jsonErrorMessage);
+
+                got_speech=false;
             }
         }
 
@@ -132,40 +182,11 @@ public:
     }
 
     /****************************************************************/
-    bool save_json()
+    bool save_data()
     {
-        // Construct Json Database
-        Json::Value jsonRoot;
-        jsonRoot["Trial"] = {}; 
-        std::cout << jsonRoot["Trial"].asString() << std::endl;
-
-        Json::Value jsonTrialInstance;
-        jsonTrialInstance["Instance"] = {}; 
-
-        // Read file and overwrite Json database
-        std::string filename ("/projects/config.json");
-        std::ifstream config_doc(filename.c_str(), std::ifstream::binary);
-        config_doc >> jsonTrialInstance; // write file to jsonRoot
-        std::cout << jsonTrialInstance["Number"].asString() << std::endl;
-
-
-        // Json::Value vec(Json::arrayValue);
-        // vec.append(Json::Value("error1"));
-        // vec.append(Json::Value("error2"));
-        
-        Json::Value jsonErrorMessage;
-        jsonErrorMessage["google-speech"]="e1";
-        jsonErrorMessage["google-speech-process"]="e1process";
-        
-        jsonTrialInstance["Speech"]["error-messages"].append(jsonErrorMessage);
-
-        jsonErrorMessage["google-speech"]="e2";
-        jsonErrorMessage["google-speech-process"]="e2process";
-        jsonTrialInstance["Speech"]["error-messages"].append(jsonErrorMessage);
-        
-        jsonRoot["Trial"].append(jsonTrialInstance);
-
-        std::cout << jsonRoot << std::endl;
+        std::string filename ("/projects/output.json");
+        std::ofstream output_doc(filename.c_str(), std::ofstream::binary);
+        output_doc << jsonRoot;
 
         return true;
 
@@ -197,8 +218,8 @@ public:
     }
 
     /****************************************************************/
-    bool save()
-    {
+    //bool save()
+    //{
         // //save to out file
         // const char *filename = "myfile.mat";
         // mat_t *matfp = NULL; //matfp contains pointer to MAT file or NULL on failure
@@ -236,15 +257,24 @@ public:
         // Mat_VarWrite(matfp, variable1d, MAT_COMPRESSION_NONE);
         // Mat_VarFree(variable1d);
 
-        return true;
-    }
+    //    return true;
+    //}
 
     /****************************************************************/
     bool start() override
     {
         lock_guard<mutex> lg(mtx);
         yInfo()<<"Starting collecting";
-        save_json();
+
+        // Read file - this should probable be on the config step
+        std::string filename ("/projects/config.json");
+        std::ifstream config_doc(filename.c_str(), std::ifstream::binary);
+
+        // when we start, we prepare an instance of a trial
+        jsonTrialInstance["Instance"] = {}; 
+        // and populate it with the structure
+        config_doc >> jsonTrialInstance; 
+
         starting=true;
         return true;
     }
@@ -253,11 +283,10 @@ public:
     bool stop() override
     {
         lock_guard<mutex> lg(mtx);
-         
-        // save();
+        
+        // we had the trial instance to the trial list when we stop a trial
+        jsonRoot["Trial"].append(jsonTrialInstance);
 
-        speech_events.clear();
-        speech_process_events.clear();
         starting=false;
         return true;
     }

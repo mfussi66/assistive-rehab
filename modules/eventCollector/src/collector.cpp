@@ -65,6 +65,8 @@ class Collector : public RFModule, public eventCollector_IDL
     bool got_speech;
     mutex mtx;
 
+    int trialNumber;
+
 public:
 
     /********************************************************/
@@ -88,6 +90,8 @@ public:
         got_speech=false;
         
         jsonRoot["Trial"] = {}; 
+
+        trialNumber = 0;
 
         return true;
     }
@@ -136,6 +140,11 @@ public:
         Bottle *speech=googleSpeechPort.read(false);
         Bottle *speech_process=googleProcessPort.read(false);
 
+        auto time = std::time(nullptr);
+        auto tm = *std::localtime(&time);
+        std::ostringstream speech_bottle_time;
+        std::ostringstream speech_process_bottle_time;
+
         if (speech)
         {
             if (speech->size()>0)
@@ -143,18 +152,32 @@ public:
                 if (got_speech) // this means we got a speech bottle after another speechBottle, something went wrong
                 {
                     // in this situation, we save first the previous instance
+
                     jsonErrorMessage["google-speech-process"]="no google-speech-processing triggered";
+                    jsonTrialInstance["Speech"]["error-messages"].append(jsonErrorMessage);
                     jsonTrialInstance["Speech"]["error-messages"].append(jsonErrorMessage);
                 }
                 yDebug()<<"speech bottle:"<<speech->toString();
                 string content=speech->get(0).asString();
                 yDebug()<<"content:"<<content;
 
+                time = std::time(nullptr);
+                tm = *std::localtime(&time);
+                speech_bottle_time << std::put_time(&tm, "%d-%m-%Y %H-%M-%S");
+                jsonErrorMessage["google-speech-event-time"] = speech_bottle_time.str();
+                speech_bottle_time.clear();
+
                 jsonErrorMessage["google-speech"]=content;
 
                 got_speech=true;
                 
             }
+            // we save the time we got a speech bottle, in case we get two in a row
+            time = std::time(nullptr);
+            tm = *std::localtime(&time);
+            speech_process_bottle_time << std::put_time(&tm, "%d-%m-%Y %H-%M-%S");
+            jsonErrorMessage["google-speech-process-event-time"] = speech_process_bottle_time.str();
+            speech_process_bottle_time.clear();
         }
 
         if (speech_process) // if we got something from speech process AND we already had something from speech
@@ -164,12 +187,22 @@ public:
                 if (!got_speech) // similarly, in this case the speechProcessing was triggered by something else
                 {
                     // in this case we just append an error mesage to google-speech before processing
+                    time = std::time(nullptr);
+                    tm = *std::localtime(&time);
+                    speech_bottle_time << std::put_time(&tm, "%d-%m-%Y %H-%M-%S");
+                    jsonErrorMessage["google-speech-event-time"]=speech_bottle_time.str();
+                    speech_bottle_time.clear();
                     jsonErrorMessage["google-speech"]="no google-speech triggered";
                 }
                 yDebug()<<"speech process bottle:"<<speech_process->toString();
                 string content=speech_process->get(0).asString();
                 yDebug()<<"content:"<<content;
 
+                time = std::time(nullptr);
+                tm = *std::localtime(&time);
+                speech_process_bottle_time << std::put_time(&tm, "%d-%m-%Y %H-%M-%S");
+                jsonErrorMessage["google-speech-process-event-time"]=speech_process_bottle_time.str();
+                speech_process_bottle_time.clear();
                 jsonErrorMessage["google-speech-process"]=content;
                 jsonTrialInstance["Speech"]["error-messages"].append(jsonErrorMessage);
 
@@ -274,6 +307,19 @@ public:
         jsonTrialInstance["Instance"] = {}; 
         // and populate it with the structure
         config_doc >> jsonTrialInstance; 
+        // we add the trial number to the instance
+        jsonTrialInstance["Number"] = trialNumber;
+
+        // now we get the current date in order to store it on the instance
+        auto time = std::time(nullptr);
+        auto tm = *std::localtime(&time);
+        std::ostringstream date_stream;
+        date_stream << std::put_time(&tm, "%d-%m-%Y %H-%M-%S");
+        jsonTrialInstance["Start-Time"] = date_stream.str();
+
+        trialNumber++;
+
+        // We start measuring the time to monitor events
 
         starting=true;
         return true;
@@ -283,7 +329,12 @@ public:
     bool stop() override
     {
         lock_guard<mutex> lg(mtx);
-        
+        auto time = std::time(nullptr);
+        auto tm = *std::localtime(&time);
+        std::ostringstream date_stream;
+        date_stream << std::put_time(&tm, "%d-%m-%Y %H-%M-%S");
+        jsonTrialInstance["Stop-Time"] = date_stream.str();
+
         // we had the trial instance to the trial list when we stop a trial
         jsonRoot["Trial"].append(jsonTrialInstance);
 

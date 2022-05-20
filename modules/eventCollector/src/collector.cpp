@@ -66,6 +66,7 @@ class Collector : public RFModule, public eventCollector_IDL
     mutex mtx;
 
     int trialNumber;
+    double timeFromStart;
 
 public:
 
@@ -164,7 +165,8 @@ public:
                 time = std::time(nullptr);
                 tm = *std::localtime(&time);
                 speech_bottle_time << std::put_time(&tm, "%d-%m-%Y %H-%M-%S");
-                jsonErrorMessage["google-speech-event-time"] = speech_bottle_time.str();
+                //jsonErrorMessage["google-speech-event-time"] = speech_bottle_time.str();
+                jsonErrorMessage["google-speech-event-time"] = yarp::os::Time::now() - timeFromStart;
                 speech_bottle_time.clear();
 
                 jsonErrorMessage["google-speech"]=content;
@@ -176,7 +178,8 @@ public:
             time = std::time(nullptr);
             tm = *std::localtime(&time);
             speech_process_bottle_time << std::put_time(&tm, "%d-%m-%Y %H-%M-%S");
-            jsonErrorMessage["google-speech-process-event-time"] = speech_process_bottle_time.str();
+            //jsonErrorMessage["google-speech-process-event-time"] = speech_process_bottle_time.str();
+            jsonErrorMessage["google-speech-process-event-time"] = yarp::os::Time::now() - timeFromStart;
             speech_process_bottle_time.clear();
         }
 
@@ -190,8 +193,9 @@ public:
                     time = std::time(nullptr);
                     tm = *std::localtime(&time);
                     speech_bottle_time << std::put_time(&tm, "%d-%m-%Y %H-%M-%S");
-                    jsonErrorMessage["google-speech-event-time"]=speech_bottle_time.str();
+                    //jsonErrorMessage["google-speech-event-time"]=speech_bottle_time.str();
                     speech_bottle_time.clear();
+                    jsonErrorMessage["google-speech-event-time"] = yarp::os::Time::now() - timeFromStart;
                     jsonErrorMessage["google-speech"]="no google-speech triggered";
                 }
                 yDebug()<<"speech process bottle:"<<speech_process->toString();
@@ -201,7 +205,8 @@ public:
                 time = std::time(nullptr);
                 tm = *std::localtime(&time);
                 speech_process_bottle_time << std::put_time(&tm, "%d-%m-%Y %H-%M-%S");
-                jsonErrorMessage["google-speech-process-event-time"]=speech_process_bottle_time.str();
+                //jsonErrorMessage["google-speech-process-event-time"]=speech_process_bottle_time.str();
+                jsonErrorMessage["google-speech-process-event-time"] = yarp::os::Time::now() - timeFromStart;
                 speech_process_bottle_time.clear();
                 jsonErrorMessage["google-speech-process"]=content;
                 jsonTrialInstance["Speech"]["error-messages"].append(jsonErrorMessage);
@@ -316,6 +321,8 @@ public:
         std::ostringstream date_stream;
         date_stream << std::put_time(&tm, "%d-%m-%Y %H-%M-%S");
         jsonTrialInstance["Start-Time"] = date_stream.str();
+
+        timeFromStart = yarp::os::Time::now();
 
         trialNumber++;
 

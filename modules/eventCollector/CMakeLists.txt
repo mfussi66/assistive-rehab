@@ -26,6 +26,7 @@ if(JSONCPP_FOUND)
     target_link_libraries(${PROJECT_NAME} ${YARP_LIBRARIES} ${JSONCPP_LIBRARIES})
     install(TARGETS ${PROJECT_NAME} DESTINATION bin)
 
-    #file(GLOB scripts app/scripts/*.template)
-    #yarp_install(FILES ${scripts} DESTINATION ${ICUBCONTRIB_APPLICATIONS_TEMPLATES_INSTALL_DIR})
+    file(GLOB json-config app/conf/*.json)
+    yarp_install(FILES ${json-config} DESTINATION ${ICUBCONTRIB_CONTEXTS_INSTALL_DIR}/${PROJECT_NAME})
+
 endif()

@@ -68,6 +68,9 @@ class Collector : public RFModule, public eventCollector_IDL
     int trialNumber;
     double timeFromStart;
 
+    std::string configFileName;
+    std::string outputFileName;
+
 public:
 
     /********************************************************/
@@ -81,7 +84,9 @@ public:
     {
         string moduleName = rf.check("name", Value("eventCollector")).asString();
         setName(moduleName.c_str());
-        
+
+        configFileName = rf.findFileByName("config.json");
+
         googleSpeechPort.open(("/" + getName() + "/speech:i").c_str());
         googleProcessPort.open(("/" + getName() + "/speech-process:i").c_str()); 
         rpcPort.open(("/" + getName() + "/cmd").c_str());
@@ -141,12 +146,6 @@ public:
         Bottle *speech=googleSpeechPort.read(false);
         Bottle *speech_process=googleProcessPort.read(false);
 
-
-        auto time = std::time(nullptr);
-        auto tm = *std::localtime(&time);
-        std::ostringstream speech_bottle_time;
-        std::ostringstream speech_process_bottle_time;
-
         if (speech)
         {
             if (speech->size()>0)
@@ -162,12 +161,7 @@ public:
                 string content=speech->get(0).asString();
                 yDebug()<<"content:"<<content;
 
-                time = std::time(nullptr);
-                tm = *std::localtime(&time);
-                speech_bottle_time << std::put_time(&tm, "%d-%m-%Y %H-%M-%S");
-                //jsonErrorMessage["google-speech-event-time"] = speech_bottle_time.str();
                 jsonErrorMessage["google-speech-event-time"] = yarp::os::Time::now() - timeFromStart;
-                speech_bottle_time.clear();
 
                 jsonErrorMessage["google-speech"]=content;
 
@@ -175,12 +169,7 @@ public:
                 
             }
             // we save the time we got a speech bottle, in case we get two in a row
-            time = std::time(nullptr);
-            tm = *std::localtime(&time);
-            speech_process_bottle_time << std::put_time(&tm, "%d-%m-%Y %H-%M-%S");
-            //jsonErrorMessage["google-speech-process-event-time"] = speech_process_bottle_time.str();
             jsonErrorMessage["google-speech-process-event-time"] = yarp::os::Time::now() - timeFromStart;
-            speech_process_bottle_time.clear();
         }
 
         if (speech_process) // if we got something from speech process AND we already had something from speech
@@ -190,11 +179,6 @@ public:
                 if (!got_speech) // similarly, in this case the speechProcessing was triggered by something else
                 {
                     // in this case we just append an error mesage to google-speech before processing
-                    time = std::time(nullptr);
-                    tm = *std::localtime(&time);
-                    speech_bottle_time << std::put_time(&tm, "%d-%m-%Y %H-%M-%S");
-                    //jsonErrorMessage["google-speech-event-time"]=speech_bottle_time.str();
-                    speech_bottle_time.clear();
                     jsonErrorMessage["google-speech-event-time"] = yarp::os::Time::now() - timeFromStart;
                     jsonErrorMessage["google-speech"]="no google-speech triggered";
                 }
@@ -202,12 +186,7 @@ public:
                 string content=speech_process->get(0).asString();
                 yDebug()<<"content:"<<content;
 
-                time = std::time(nullptr);
-                tm = *std::localtime(&time);
-                speech_process_bottle_time << std::put_time(&tm, "%d-%m-%Y %H-%M-%S");
-                //jsonErrorMessage["google-speech-process-event-time"]=speech_process_bottle_time.str();
                 jsonErrorMessage["google-speech-process-event-time"] = yarp::os::Time::now() - timeFromStart;
-                speech_process_bottle_time.clear();
                 jsonErrorMessage["google-speech-process"]=content;
                 jsonTrialInstance["Speech"]["error-messages"].append(jsonErrorMessage);
 
@@ -222,8 +201,8 @@ public:
     /****************************************************************/
     bool save_data()
     {
-        std::string filename ("/projects/output.json");
-        std::ofstream output_doc(filename.c_str(), std::ofstream::binary);
+        outputFileName = "output.json";
+        std::ofstream output_doc(outputFileName.c_str(), std::ofstream::binary);
         output_doc << jsonRoot;
 
         return true;
@@ -305,8 +284,7 @@ public:
         yInfo()<<"Starting collecting";
 
         // Read file - this should probable be on the config step
-        std::string filename ("/projects/config.json");
-        std::ifstream config_doc(filename.c_str(), std::ifstream::binary);
+        std::ifstream config_doc(configFileName.c_str(), std::ifstream::binary);
 
         // when we start, we prepare an instance of a trial
         jsonTrialInstance["Instance"] = {}; 

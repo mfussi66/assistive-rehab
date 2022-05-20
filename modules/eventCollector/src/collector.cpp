@@ -140,6 +140,7 @@ public:
         Bottle *speech=googleSpeechPort.read(false);
         Bottle *speech_process=googleProcessPort.read(false);
 
+
         auto time = std::time(nullptr);
         auto tm = *std::localtime(&time);
         std::ostringstream speech_bottle_time;
@@ -154,7 +155,6 @@ public:
                     // in this situation, we save first the previous instance
 
                     jsonErrorMessage["google-speech-process"]="no google-speech-processing triggered";
-                    jsonTrialInstance["Speech"]["error-messages"].append(jsonErrorMessage);
                     jsonTrialInstance["Speech"]["error-messages"].append(jsonErrorMessage);
                 }
                 yDebug()<<"speech bottle:"<<speech->toString();

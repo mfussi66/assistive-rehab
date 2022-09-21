@@ -38,8 +38,8 @@
 #include <yarp/os/LogStream.h>
 #include <yarp/os/BufferedPort.h>
 
-#include <json/json.h>
-#include <json/value.h>
+#include <jsoncpp/json/json.h>
+#include <jsoncpp/json/value.h>
 
 #include "src/eventCollector_IDL.h"
 

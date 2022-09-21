@@ -4,9 +4,10 @@
 
 #find_package(MATIO QUIET)
 #find_package(HDF5 QUIET)
-find_package(PkgConfig REQUIRED)
+find_package(JSONCPP)
+# find_package(PkgConfig REQUIRED)
 pkg_check_modules(JSONCPP jsoncpp)
-link_libraries(${JSONCPP_LIBRARIES})
+# link_libraries(${JSONCPP_LIBRARIES})
 if(JSONCPP_FOUND)
     project(eventCollector)
 
@@ -23,7 +24,7 @@ if(JSONCPP_FOUND)
     add_executable(${PROJECT_NAME} ${source} src/idl.thrift ${IDL_GEN_FILES})
     target_include_directories(${PROJECT_NAME} PRIVATE ${JSONCPP_INCLUDE_DIR})
     target_compile_definitions(${PROJECT_NAME} PRIVATE _USE_MATH_DEFINES)
-    target_link_libraries(${PROJECT_NAME} ${YARP_LIBRARIES} ${JSONCPP_LIBRARIES})
+    target_link_libraries(${PROJECT_NAME} ${YARP_LIBRARIES} jsoncpp)
     install(TARGETS ${PROJECT_NAME} DESTINATION bin)
 
     file(GLOB json-config app/conf/*.json)

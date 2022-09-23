@@ -205,7 +205,7 @@ public:
                 string content="found obstacle from " + obstacle->get(1).asString() + 
                                 " at distance " + std::to_string(obstacle->get(0).asFloat64());
                 yDebug()<<"content:"<<content;
-                addMessage(content, "Navigation," "obstacle-detection-event-time", "obstacle-detection");
+                addMessage(content, "Navigation", "obstacle-detection-event-time", "obstacle-detection");
             }
         }
  
@@ -215,7 +215,7 @@ public:
 
     bool addMessage(const string& content, const string& context, const  string& error_time_key, const  string& error_type_key) 
     {
-        json::Value jsonMessage;
+        Json::Value jsonMessage;
         jsonMessage[error_time_key] = yarp::os::Time::now() - timeFromStart;
         jsonMessage[error_type_key] = content;
         jsonTrialInstance[context]["error-messages"].append(jsonMessage);

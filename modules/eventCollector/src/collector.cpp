@@ -61,7 +61,6 @@ class Collector : public RFModule, public eventCollector_IDL
 
     Json::Value jsonRoot;
     Json::Value jsonTrialInstance;
-    Json::Value jsonNavErrorMessage;
     Json::Value jsonSpeechErrorMessage;
     bool starting;
     bool got_speech;
@@ -160,7 +159,8 @@ public:
                 if (got_speech) // this means we got a speech bottle after another speechBottle, something went wrong
                 {
                     // in this situation, we save first the previous instance
-
+                    // we save the time we got a speech bottle, in case we get two in a row
+                    jsonSpeechErrorMessage["google-speech-process-event-time"] = yarp::os::Time::now() - timeFromStart;
                     jsonSpeechErrorMessage["google-speech-process"]="no google-speech-processing triggered";
                     jsonTrialInstance["Speech"]["error-messages"].append(jsonSpeechErrorMessage);
                 }
@@ -169,14 +169,10 @@ public:
                 yDebug()<<"content:"<<content;
 
                 jsonSpeechErrorMessage["google-speech-event-time"] = yarp::os::Time::now() - timeFromStart;
-
                 jsonSpeechErrorMessage["google-speech"]=content;
 
-                got_speech=true;
-                
+                got_speech=true;   
             }
-            // we save the time we got a speech bottle, in case we get two in a row
-            jsonSpeechErrorMessage["google-speech-process-event-time"] = yarp::os::Time::now() - timeFromStart;
         }
 
         if (speech_process) // if we got something from speech process AND we already had something from speech
@@ -209,14 +205,22 @@ public:
                 string content="found obstacle from " + obstacle->get(1).asString() + 
                                 " at distance " + std::to_string(obstacle->get(0).asFloat64());
                 yDebug()<<"content:"<<content;
-
-                jsonNavErrorMessage["obstacle-detection-event-time"] = yarp::os::Time::now() - timeFromStart;
-                jsonNavErrorMessage["obstacle-detection"] = content;
-                jsonTrialInstance["Navigation"]["error-messages"].append(jsonNavErrorMessage);
+                addMessage(content, "Navigation," "obstacle-detection-event-time", "obstacle-detection");
             }
         }
  
         return true;
+    }
+
+
+    bool addMessage(const string& content, const string& context, const  string& error_time_key, const  string& error_type_key) 
+    {
+        json::Value jsonMessage;
+        jsonMessage[error_time_key] = yarp::os::Time::now() - timeFromStart;
+        jsonMessage[error_type_key] = content;
+        jsonTrialInstance[context]["error-messages"].append(jsonMessage);
+
+        return true; 
     }
 
     /****************************************************************/
